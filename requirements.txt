@@ -1,0 +1,12 @@
+deepagents
+langchain-community
+langchain-ollama
+langchain-openai
+numpy
+pandas
+python-pptx
+python-dotenv
+tavily-python
+beautifulsoup4
+pymupdf4llm
+tqdm

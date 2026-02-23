@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS network_stats (
+    dt DATE NOT NULL,
+    ne TEXT NOT NULL,
+    calls INTEGER NOT NULL,
+    traffic_cs REAL NOT NULL,
+    traffic_ps REAL NOT NULL,
+    pct_edrx REAL NOT NULL,
+    drop_rate REAL NOT NULL,
+    latency_ms REAL NOT NULL,
+    conn_attempts INTEGER NOT NULL,
+    handover_cnt INTEGER NOT NULL,
+    paging_succ REAL NOT NULL,
+    rrc_conn INTEGER NOT NULL,
+    dl_mbps REAL NOT NULL,
+    ul_mbps REAL NOT NULL,
+    prb_util REAL NOT NULL,
+    cell_load REAL NOT NULL,
+    paging_vol INTEGER NOT NULL,
+    PRIMARY KEY (dt, ne)
+);
