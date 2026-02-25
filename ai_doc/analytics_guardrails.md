@@ -2,7 +2,7 @@
 
 ## Guardrails
 
-- **SQL**: только read-only (SELECT) через `query_stats_db` к `ai_data/network_stats.db`. INSERT/UPDATE/DELETE запрещены.
+- **SQL**: только read-only (SELECT) через `query_stats_db` к `ai_data/network_stats.db` (таблица **hour_stats**). INSERT/UPDATE/DELETE запрещены.
 - **Сгенерированные скрипты** (`execute_analysis_script`):
   - Разрешённые библиотеки: pandas, numpy, matplotlib, seaborn, sqlite3, pathlib, os, json.
   - Запрещённые конструкции: subprocess, os.system, eval, exec, __import__ (проверка в `tools/analysis_runner.py`).

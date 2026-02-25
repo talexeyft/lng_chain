@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Выполнение read-only SQL-запросов к локальной SQLite-базе статистики (ai_data/network_stats.db).
+Основная таблица для запросов: hour_stats.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from pathlib import Path
 
 
 def _default_db_path() -> Path:
+    """Путь к БД; основная таблица — hour_stats."""
     return Path(__file__).resolve().parent.parent / "ai_data" / "network_stats.db"
 
 

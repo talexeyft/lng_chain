@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/alex/code/lng_chain/ai_experiments/edrx_rca_baseline_median/analysis.py", line 1, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'

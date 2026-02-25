@@ -123,7 +123,7 @@ compatibility: Требования (Ollama, API-ключ, путь к данн�
 ```yaml
 ---
 name: technical-stats
-description: Описывает техническую статистику сети и работу с ней — SQLite-база ai_data/network_stats.db, таблица network_stats, read-only SQL. Использовать при запросах пользователя о статистике сети, KPI, метриках, отчётах по NE, трафике, качестве, eDRX, дропах, задержках, нагрузке.
+description: Описывает техническую статистику сети и работу с ней — SQLite-база ai_data/network_stats.db, таблица hour_stats, read-only SQL. Использовать при запросах пользователя о статистике сети, KPI, метриках, отчётах по сотам (cellname), трафике, качестве, дропах, доступности.
 allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifacts
 ---
 ```
@@ -185,14 +185,15 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 Пример:
 
 ```markdown
-## Схема таблицы `network_stats`
+## Схема таблицы `hour_stats`
 
-| Колонка    | Тип      | Описание          |
-|------------|----------|-------------------|
-| dt         | DATE     | Дата (YYYY-MM-DD) |
-| ne         | TEXT     | Код NE            |
-| traffic_ps | REAL     | Трафик PS         |
-| drop_rate  | REAL     | Доля дропов, %    |
+| Колонка    | Тип      | Описание                    |
+|------------|----------|-----------------------------|
+| dt         | TEXT     | Дата-время (YYYY-MM-DD HH:MM:SS) |
+| cellname   | INTEGER  | Код соты                    |
+| cs_traffic | REAL     | Трафик CS                   |
+| ps_traffic | REAL     | Трафик PS                   |
+| voice_dcr  | REAL     | Voice DCR (дропы), %        |
 ```
 
 ### 5.5 Output format / шаблоны вывода
@@ -297,7 +298,7 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 
 | Инструмент | Назначение |
 |------------|------------|
-| query_stats_db | Только SELECT к ai_data/network_stats.db; при больших выборках — save_to_file=True |
+| query_stats_db | Только SELECT к ai_data/network_stats.db (таблица hour_stats); при больших выборках — save_to_file=True |
 | execute_analysis_script | Запуск сгенерированного analysis.py в ai_experiments/<scenario_id>/ |
 | list_experiment_artifacts | Проверка артефактов после запуска скрипта |
 ```

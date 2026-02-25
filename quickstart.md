@@ -82,9 +82,11 @@ python tools/md_search.py semantic-search "как выполняется handove
 
 ## 9) Статистика сети (SQLite)
 
-База: `ai_data/network_stats.db`, таблица `network_stats`. Запросы к ней выполняет агент через инструмент `query_stats_db` (только SELECT). Навык: `skills/technical-stats/`.
+База: `ai_data/network_stats.db`, таблица **`hour_stats`** — почасовая статистика 3G по сотам. Запросы к ней выполняет агент через инструмент `query_stats_db` (только SELECT). Навык: `skills/technical-stats/`. Колонки: `dt`, `cellname`, `cs_traffic`, `ps_traffic`, KPI качества (`voice_dcr`, `rrc_dcr`, `cell_availability`, `cssr_amr` и др.).
 
-Создание схемы и генерация тестовых данных:
+Загрузка почасовой статистики из xlsx: `python tools/load_hour_stats.py --db ai_data/network_stats.db --xlsx "srcdata/..." --if-exists replace`.
+
+Создание схемы и генерация тестовых данных для таблицы `network_stats` (опционально):
 
 ```bash
 python tools/fake_network_stats.py create-schema --db ai_data/network_stats.db

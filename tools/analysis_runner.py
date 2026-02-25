@@ -15,6 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AI_EXPERIMENTS = PROJECT_ROOT / "ai_experiments"
 AI_DATA = PROJECT_ROOT / "ai_data"
+# БД статистики; сгенерированные скрипты сценариев по умолчанию работают с таблицей hour_stats
 DB_PATH = AI_DATA / "network_stats.db"
 
 # Разрешённые импорты в сгенерированном коде (для проверки перед запуском)

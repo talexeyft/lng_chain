@@ -1,6 +1,6 @@
 ---
 name: technical-stats
-description: Описывает техническую статистику сети и работу с ней — SQLite-база ai_data/network_stats.db, таблица network_stats, read-only SQL. Использовать при запросах пользователя о статистике сети, KPI, метриках, отчётах по NE, трафике, качестве, eDRX, дропах, задержках, нагрузке.
+description: Описывает техническую статистику сети и работу с ней — SQLite-база ai_data/network_stats.db, таблица hour_stats, read-only SQL. Использовать при запросах пользователя о статистике сети, KPI, метриках, отчётах по сотам (cellname), трафике, качестве, дропах, доступности.
 allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifacts
 ---
 
@@ -8,77 +8,126 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 
 ## Назначение
 
-В проекте хранится **техническая статистика сети** в локальной SQLite-базе. Данные используются для анализа нагрузки, качества и KPI по сетевым элементам (NE) и датам. Доступ — **только чтение** (SELECT).
+В проекте хранится **почасовая техническая статистика сети** (3G) в локальной SQLite-базе. Данные используются для анализа нагрузки, качества и KPI по сотам (cellname) и датам/часам. Доступ — **только чтение** (SELECT).
 
 ## Расположение и доступ
 
 | Что | Где |
 |-----|-----|
 | База | `ai_data/network_stats.db` (от корня проекта) |
+| Таблица | `hour_stats` — почасовая статистика по сотам |
 | Инструмент агента | `query_stats_db(sql, max_rows=500, save_to_file=False)` — только SELECT. По умолчанию возвращает таблицу в ответе; при `save_to_file=True` сохраняет результат в `ai_data/query_<id>.tsv` и возвращает путь и сводку (строки, колонки), не загружая полный дамп в контекст |
 | Модуль | `tools/stats_db.run_stats_query()` |
 
 Ограничения: разрешены **только SELECT**-запросы; результат ограничен `max_rows` (по умолчанию 500).
 
-## Схема таблицы `network_stats`
+## Схема таблицы `hour_stats`
 
-**Ключ:** `(dt, ne)` — дата и идентификатор сетевого элемента.
+**Идентификация:** по `dt` (дата-время) и `cellname` (код соты).
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `dt` | DATE | Дата (YYYY-MM-DD) |
-| `ne` | TEXT | Код NE (например bs-01, bs-02) |
-| `calls` | INTEGER | Количество вызовов |
-| `traffic_cs` | REAL | Трафик CS |
-| `traffic_ps` | REAL | Трафик PS |
-| `pct_edrx` | REAL | Доля eDRX, % |
-| `drop_rate` | REAL | Доля дропов, % |
-| `latency_ms` | REAL | Задержка, мс |
-| `conn_attempts` | INTEGER | Попытки установления соединения |
-| `handover_cnt` | INTEGER | Количество хэндоверов |
-| `paging_succ` | REAL | Успешность пейджинга, % |
-| `rrc_conn` | INTEGER | RRC-соединения |
-| `dl_mbps` | REAL | Скорость downlink, Мбит/с |
-| `ul_mbps` | REAL | Скорость uplink, Мбит/с |
-| `prb_util` | REAL | Утилизация PRB, % |
-| `cell_load` | REAL | Нагрузка соты, % |
-| `paging_vol` | INTEGER | Объём пейджинга |
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT |
+| `dt` | TEXT | Дата-время (YYYY-MM-DD HH:MM:SS) |
+| `cellname` | INTEGER | Код соты |
+| `cs_traffic` | REAL | Трафик CS |
+| `ps_traffic` | REAL | Трафик PS |
+| `cell_availability` | REAL | Доступность соты |
+| `cssr_amr` | REAL | CSSR AMR |
+| `voice_dcr` | REAL | Voice DCR (дропы голоса) |
+| `rrc_cssr` | REAL | RRC CSSR |
+| `rrc_dcr` | REAL | RRC DCR (дропы RRC) |
+| `packet_ssr` | REAL | Packet SSR |
+| `hsdpa_sr` | REAL | HSDPA success rate |
+| `rab_ps_dcr_user` | REAL | RAB PS DCR (user) |
+| `hsdpa_end_usr_thrp` | REAL | HSDPA throughput |
+| `sho_factor` | REAL | SHO factor |
+| `sho_sr` | REAL | SHO success rate |
+| `rtwp` | REAL | RTWP |
+| `cs_att` | REAL | CS попытки |
+| `ps_att` | REAL | PS попытки |
+| `branch` | INTEGER | Ветка |
+| `active_user` | REAL | Активные пользователи |
+| `code_block` | REAL | Code block |
 
 ## Принципы работы
 
 1. **Только чтение** — INSERT/UPDATE/DELETE через `query_stats_db` запрещены; агент не должен пытаться менять данные.
-2. **Формулировка запросов** — писать валидный SQL (SELECT ... FROM network_stats [WHERE ...] [GROUP BY ...] [ORDER BY ...] [LIMIT ...]). Для больших выборок учитывать `max_rows` или явно задавать LIMIT. Для объёмных результатов использовать `save_to_file=True`, чтобы не раздувать контекст — данные сохранятся в файл, в ответ придёт путь и сводка.
-3. **Агрегаты и фильтры** — для отчётов по периодам использовать `GROUP BY dt` или диапазон дат в WHERE; по NE — `GROUP BY ne` или фильтр по `ne`.
-4. **Интерпретация** — при ответах пользователю переводить результат в понятный текст/выводы; при необходимости округлять числа и указывать единицы (%, Мбит/с, мс).
+2. **Формулировка запросов** — писать валидный SQL (SELECT ... FROM hour_stats [WHERE ...] [GROUP BY ...] [ORDER BY ...] [LIMIT ...]). Для больших выборок учитывать `max_rows` или явно задавать LIMIT. Для объёмных результатов использовать `save_to_file=True`, чтобы не раздувать контекст — данные сохранятся в файл, в ответ придёт путь и сводка.
+3. **Агрегаты и фильтры** — для отчётов по периодам использовать `GROUP BY date(dt)` или диапазон по `dt` в WHERE; по сотам — `GROUP BY cellname` или фильтр по `cellname`.
+4. **Интерпретация** — при ответах пользователю переводить результат в понятный текст/выводы; при необходимости округлять числа и указывать единицы.
 
 ## Типовые сценарии
 
-- Сводка по датам: `SELECT dt, SUM(calls), AVG(drop_rate), ... FROM network_stats GROUP BY dt ORDER BY dt`
-- Топ NE по метрике: `SELECT ne, SUM(calls) AS total_calls FROM network_stats WHERE dt BETWEEN '...' AND '...' GROUP BY ne ORDER BY total_calls DESC LIMIT 20`
-- Качество (дропы, задержка): фильтровать по `drop_rate`, `latency_ms`, `paging_succ`
-- Нагрузка и трафик: `traffic_ps`, `traffic_cs`, `dl_mbps`, `ul_mbps`, `prb_util`, `cell_load`
+- Сводка по датам: `SELECT date(dt) AS d, SUM(cs_traffic), SUM(ps_traffic), AVG(voice_dcr), AVG(rrc_dcr) FROM hour_stats GROUP BY d ORDER BY d`
+- Топ сот по трафику: `SELECT cellname, SUM(cs_traffic) AS t_cs, SUM(ps_traffic) AS t_ps FROM hour_stats WHERE dt BETWEEN '...' AND '...' GROUP BY cellname ORDER BY (t_cs + t_ps) DESC LIMIT 20`
+- Качество: фильтровать по `voice_dcr`, `rrc_dcr`, `cell_availability`, `cssr_amr`
+- Трафик и активность: `cs_traffic`, `ps_traffic`, `cs_att`, `ps_att`, `active_user`
 
 ## RCA низкого трафика (методология)
 
-При анализе «почему у БС низкий трафик» используй единую методологию.
+При анализе «почему у соты низкий трафик» используй единую методологию.
 
 ### Стандартные KPI для RCA
 
 | Группа | Колонки | Назначение |
 |--------|---------|------------|
-| Трафик/спрос | `traffic_ps`, `traffic_cs`, `calls`, `rrc_conn` | Объём и активность |
-| Качество | `drop_rate`, `latency_ms`, `paging_succ` | Дропы, задержка, пейджинг |
-| Нагрузка/ёмкость | `prb_util`, `cell_load`, `dl_mbps`, `ul_mbps` | Перегрузка или недогрузка |
-| Мобильность | `handover_cnt` | Хэндоверы |
+| Трафик/спрос | `cs_traffic`, `ps_traffic`, `cs_att`, `ps_att`, `active_user` | Объём и активность |
+| Качество | `voice_dcr`, `rrc_dcr`, `cell_availability`, `cssr_amr`, `packet_ssr`, `hsdpa_sr` | Дропы, доступность, успешность |
+| Нагрузка/ёмкость | `rtwp`, `hsdpa_end_usr_thrp`, `rab_ps_dcr_user` | Помехи, throughput |
+
+### Интегральные оценки качества SQI1 и SQI2
+
+Индикаторы из таблицы `hour_stats` разнесены по двум интегральным оценкам качества:
+
+- **SQI1 (голос)** — интегральная оценка качества голосовых сервисов (CS/voice). Используй при вопросах о голосе, дропах звонков, доступности голоса.
+- **SQI2 (данные)** — интегральная оценка качества пакетных данных (PS/data). Используй при вопросах о мобильном интернете, дропах данных, скорости HSDPA.
+
+Расчёт числовых значений SQI1/SQI2 в коде не реализован; скилл задаёт только методологию разнесения KPI и интерпретации.
+
+#### Индикаторы SQI1 (голос)
+
+При агрегации показатель нормаируется на голосовой трафик (cs_traffic)
+
+| Колонка | Описание |
+|---------|----------|
+| `cssr_amr` | CSSR AMR — успешность установки голосового вызова |
+| `voice_dcr` | Voice DCR — дропы голосовых вызовов |
+
+#### Индикаторы SQI2 (данные)
+
+| Колонка | Описание |
+|---------|----------|
+| `ps_traffic` | Трафик PS (пакетный) |
+| `rrc_cssr`, `rrc_dcr` | RRC — установка и дропы соединения по данным |
+| `packet_ssr` | Packet SSR — успешность пакетных сессий |
+| `hsdpa_sr` | HSDPA success rate |
+| `rab_ps_dcr_user` | RAB PS DCR (дропы пакетных каналов) |
+| `hsdpa_end_usr_thrp` | HSDPA throughput |
+| `ps_att` | PS попытки (данные) |
+
+#### Общие индикаторы
+
+Учитываются при интерпретации и SQI1, и SQI2 (общие условия сети):
+
+| Колонка | Описание |
+|---------|----------|
+| `cell_availability` | Доступность соты |
+| `rtwp` | Уровень помех (влияет на голос и данные) |
+| `active_user` | Активные пользователи |
+
+Служебные/группировочные поля `branch`, `code_block` не входят в SQI; используются для фильтрации и разрезов (например, по веткам сети).
+
+**Использование:** при вопросах про голосовые проблемы опирайся на KPI из группы SQI1 и общих; при вопросах про мобильный интернет/данные — на KPI из группы SQI2 и общих.
 
 ### Окна времени
 
-- **baseline** — исторический период (например, от (max_date − 90 дней) до (max_date − 15 дней)): «норма» для БС.
+- **baseline** — исторический период (например, от (max_date − 90 дней) до (max_date − 15 дней)): «норма» для соты.
 - **recent** — последние N дней (например, 14): текущее состояние.
 
-Сравнивай медианы (или средние) по `baseline` и `recent` для каждой БС.
+Сравнивай медианы (или средние) по `baseline` и `recent` для каждой соты.
 
-### Классификация статуса БС
+### Классификация статуса соты
 
 - **всегда низкий** — baseline уже низкий (например, ниже 10% перцентиля по трафику), recent примерно такой же; причина — изначально низкий спрос или малая зона.
 - **стал низкий** — baseline в норме, recent заметно ниже (например, падение >30%); искать причину просадки.
@@ -88,17 +137,17 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 
 Проверяй гипотезы в фиксированном порядке и подкрепляй цифрами:
 
-1. **Доступность** — нет ли провалов по датам, нулевой трафик при нулевых вызовах (техсбой).
-2. **Качество** — рост `drop_rate`, падение `paging_succ`, рост `latency_ms` в recent vs baseline.
-3. **Спрос** — падение `calls`, `rrc_conn` при сохранном качестве (смещение трафика, отток абонентов).
-4. **Нагрузка** — аномалии `prb_util`, `cell_load` (перегрузка или, наоборот, недогрузка после изменений).
-5. **Сезонность/внешние факторы** — сравнение с тем же периодом год назад или с соседними БС.
+1. **Доступность** — нет ли провалов по датам, нулевой трафик при нулевых попытках (техсбой). Использовать `cell_availability`, `cs_att`, `ps_att`.
+2. **Качество** — рост `voice_dcr`, `rrc_dcr`, падение `cssr_amr`, `cell_availability` в recent vs baseline.
+3. **Спрос** — падение `cs_att`, `ps_att`, `active_user` при сохранном качестве (смещение трафика, отток абонентов).
+4. **Нагрузка** — аномалии `rtwp`, `hsdpa_end_usr_thrp`, `rab_ps_dcr_user` (перегрузка или недогрузка после изменений).
+5. **Сезонность/внешние факторы** — сравнение с тем же периодом год назад или с соседними сотами.
 
 ### Confidence (уверенность в причине)
 
 Для каждой названной причины указывай **confidence** от 0 до 1:
 
-- **0.8–1.0** — причина явно подтверждена метриками (например, рост drop_rate на 20% при падении трафика).
+- **0.8–1.0** — причина явно подтверждена метриками (например, рост voice_dcr на 20% при падении трафика).
 - **0.5–0.8** — вероятная причина, есть подтверждающие KPI, но возможны иные факторы.
 - **0.2–0.5** — гипотеза, данных недостаточно для однозначного вывода.
 - **0–0.2** — спекуляция, без численного подтверждения не формулировать как вывод.
@@ -110,7 +159,7 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 Для сложных расчётов и графиков используй генерацию кода и запуск через `execute_analysis_script(scenario_id, script_content, timeout_sec)`.
 
 1. **GENERATE_SCRIPT** — сформируй Python-скрипт, который:
-   - читает данные из БД по переменной окружения `DB_PATH` (sqlite3) или используй уже выгруженные TSV в папке сценария;
+   - читает данные из БД по переменной окружения `DB_PATH` (sqlite3), таблица **hour_stats**;
    - пишет результаты только в `os.environ.get("OUTPUT_DIR", ".")`: таблицы в `results/`, графики в `plots/`;
    - использует только разрешённые библиотеки: pandas, numpy, matplotlib, seaborn, sqlite3, pathlib, os, json.
 2. **RUN** — вызови `execute_analysis_script`. При успехе в ответе будут `log_path` и `result_paths`.
@@ -123,13 +172,13 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 
 Выполняй по шагам; каждый шаг завершай STEP_RESULT с цифрами и confidence.
 
-1. **Диапазон дат** — определи max_date по БД, задай baseline (например max_date−90 … max_date−15) и recent (max_date−14 … max_date).
-2. **Отбор БС с минимальным трафиком** — агрегация по NE за recent, трафик = traffic_ps + traffic_cs (или только traffic_ps). Топ-N с наименьшей медианой/суммой. Пример SQL:
-   `SELECT ne, SUM(traffic_ps) AS t_ps, SUM(traffic_cs) AS t_cs FROM network_stats WHERE dt BETWEEN ? AND ? GROUP BY ne ORDER BY t_ps ASC LIMIT 20`
-3. **Сравнение baseline vs recent** — по каждой отобранной БС посчитать медианы (или средние) за baseline и за recent по трафику и по KPI (drop_rate, paging_succ, calls, rrc_conn, prb_util). Классифицировать: «всегда низкий» / «стал низкий» / «аномалия».
+1. **Диапазон дат** — определи max_date по БД (из `hour_stats`), задай baseline (например max_date−90 … max_date−15) и recent (max_date−14 … max_date).
+2. **Отбор сот с минимальным трафиком** — агрегация по cellname за recent, трафик = cs_traffic + ps_traffic. Топ-N с наименьшей медианой/суммой. Пример SQL:
+   `SELECT cellname, SUM(cs_traffic) AS t_cs, SUM(ps_traffic) AS t_ps FROM hour_stats WHERE dt BETWEEN ? AND ? GROUP BY cellname ORDER BY (t_cs + t_ps) ASC LIMIT 20`
+3. **Сравнение baseline vs recent** — по каждой отобранной соте посчитать медианы (или средние) за baseline и за recent по трафику и по KPI (voice_dcr, rrc_dcr, cell_availability, cs_att, ps_att, active_user). Классифицировать: «всегда низкий» / «стал низкий» / «аномалия».
 4. **RCA** — для «стал низкий» проверить причины по порядку (доступность → качество → спрос → нагрузка → сезонность), каждую подкреплять метриками и присвоить confidence.
-5. **Таблицы и графики** — для проблемных БС сформировать: таблицу метрик (baseline vs recent), 2–4 графика динамики (трафик, ключевые KPI по датам). Использовать `execute_analysis_script`: скрипт читает из DB_PATH, пишет в OUTPUT_DIR/results/ и OUTPUT_DIR/plots/.
-6. **FINAL_REPORT** — по шаблону (см. ниже): summary, список БС, RCA с confidence, рекомендации, пути к артефактам.
+5. **Таблицы и графики** — для проблемных сот сформировать: таблицу метрик (baseline vs recent), 2–4 графика динамики (трафик, ключевые KPI по датам). Использовать `execute_analysis_script`: скрипт читает из DB_PATH (таблица hour_stats), пишет в OUTPUT_DIR/results/ и OUTPUT_DIR/plots/.
+6. **FINAL_REPORT** — по шаблону (см. ниже): summary, список сот, RCA с confidence, рекомендации, пути к артефактам.
 
 ## Шаблон FINAL_REPORT
 
@@ -139,16 +188,16 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 # FINAL_REPORT: Низкий трафик БС
 
 ## Executive summary
-Кратко: сколько БС в выборке, сколько «всегда низкий» / «стал низкий», главная причина по сети (1–2 предложения).
+Кратко: сколько сот в выборке, сколько «всегда низкий» / «стал низкий», главная причина по сети (1–2 предложения).
 
-## Топ проблемных БС
-| NE | Статус | Трафик recent | Трафик baseline | Изменение % |
-|----|--------|---------------|-----------------|-------------|
-| …  | …      | …             | …               | …           |
+## Топ проблемных сот
+| cellname | Статус | Трафик recent | Трафик baseline | Изменение % |
+|----------|--------|---------------|-----------------|-------------|
+| …        | …      | …             | …               | …           |
 
-## RCA по БС
-Для каждой проблемной БС (кратко):
-- **NE**: код
+## RCA по сотам
+Для каждой проблемной соты (кратко):
+- **cellname**: код
 - **Вероятная причина**: текст
 - **Confidence**: 0–1
 - **Подтверждающие KPI**: метрики и значения
@@ -164,6 +213,7 @@ allowed-tools: query_stats_db, execute_analysis_script, list_experiment_artifact
 - Лог запуска: ai_experiments/<scenario_id>/run.log
 ```
 
-## Генерация тестовых данных
+## Генерация и загрузка данных
 
-Тестовые данные создаются скриптом `tools/fake_network_stats.py` (команды `create-schema`, `generate`). Реальная загрузка статистики в проект не описана в этом навыке — БД считается уже существующей при запросах агента.
+- **Тестовые данные** для таблицы `network_stats` создаются скриптом `tools/fake_network_stats.py` (команды `create-schema`, `generate`).
+- **Основная рабочая таблица** — `hour_stats`; загружается из xlsx через `tools/load_hour_stats.py` (см. quickstart). БД при запросах агента считается уже существующей.

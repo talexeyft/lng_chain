@@ -54,7 +54,7 @@ def search_md_docs(query: str, max_results: int = 10) -> str:
 |------|------------|
 | `search_md_docs` | Полнотекстовый поиск по MD (MD_DOCUMENTS_PATH) |
 | `search_md_docs_semantic` | Семантический поиск по MD (индекс в ai_data) |
-| `query_stats_db` | Read-only SQL к ai_data/network_stats.db |
+| `query_stats_db` | Read-only SQL к ai_data/network_stats.db (таблица hour_stats) |
 | `save_agent_file` | Сохранить файл в AGENT_STORAGE_PATH / AGENT_TEMP_PATH |
 | `load_agent_file` | Загрузить файл из хранилища агента |
 | `list_agent_storage` | Список файлов в постоянном хранилище |
