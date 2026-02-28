@@ -11,6 +11,7 @@ from deepagents import create_deep_agent
 from deepagents.backends.filesystem import FilesystemBackend
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
+from langchain_openai import ChatOpenAI
 from langchain.tools import ToolRuntime
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool, tool
@@ -21,9 +22,16 @@ from tools.agent_storage import (
     load_file as load_agent_file_content,
     save_file as save_agent_file_content,
 )
-# execute_analysis_script отключён: агент не пишет и не запускает Python-скрипты
-# from tools.analysis_runner import list_experiment_artifacts as list_experiment_artifacts_impl
-# from tools.analysis_runner import run_analysis_script
+from tools.agent_storage import (
+    clean_temp,
+    list_files as list_storage_files,
+    load_file as load_agent_file_content,
+    save_file as save_agent_file_content,
+)
+from tools.analysis_runner import (
+    list_experiment_artifacts as list_experiment_artifacts_impl,
+    run_analysis_script as run_analysis_script_impl,
+)
 from tools.md_search import search_fulltext, search_semantic
 from tools.stats_db import run_stats_query
 
@@ -130,7 +138,38 @@ def clean_agent_temp() -> str:
     return clean_temp()
 
 
-# execute_analysis_script и list_experiment_artifacts отключены — агент не пишет и не запускает Python-скрипты
+@tool
+def execute_analysis_script(
+    scenario_id: str,
+    script_content: str,
+    timeout_sec: int = 120,
+) -> str:
+    """Запускает сгенерированный Python-скрипт в ai_experiments/<scenario_id>/analysis.py.
+    scenario_id — короткий идентификатор сценария (латиница, цифры, подчёркивание).
+    script_content — полный текст скрипта. Скрипт имеет доступ к DB_PATH и OUTPUT_DIR (папка сценария).
+    Возвращает: success, message, log_path, result_paths; при ошибке — error (traceback). Используй для расчётов по данным (корреляция, графики и т.д.) вместо делегирования субагентам."""
+    out = run_analysis_script_impl(
+        scenario_id=scenario_id,
+        script_content=script_content,
+        timeout_sec=timeout_sec,
+    )
+    parts = [f"success: {out['success']}", f"message: {out['message']}"]
+    if out.get("log_path"):
+        parts.append(f"log_path: {out['log_path']}")
+    if out.get("result_paths"):
+        parts.append(f"result_paths: {out['result_paths']}")
+    if out.get("error"):
+        parts.append(f"error: {out['error']}")
+    return "\n".join(parts)
+
+
+@tool
+def list_experiment_artifacts(scenario_id: str) -> str:
+    """Список файлов в папке сценария ai_experiments/<scenario_id>: analysis.py, run.log, results/*, plots/*."""
+    out = list_experiment_artifacts_impl(scenario_id=scenario_id)
+    if not out.get("exists"):
+        return f"Сценарий {out['scenario_id']} не найден или папка пуста."
+    return f"Сценарий: {out['scenario_id']}\nФайлы:\n" + "\n".join(f"  - {f}" for f in out.get("files", []))
 
 
 def _run_subagent_impl(description: str, background: bool, runtime: ToolRuntime) -> str:
@@ -235,8 +274,25 @@ def _wrap_tool_logging(original_tool):
 
 
 def create_agent():
-    model_name = os.getenv("DEEP_AGENT_MODEL", "ollama:qwen3-coder-next")
-    model = init_chat_model(model_name)
+    model_name = os.getenv("DEEP_AGENT_MODEL", "lmstudio:lmstudio-community/qwen3.5-122b-a10b")
+    if model_name.startswith("lmstudio:"):
+        lmstudio_model = model_name.split(":", 1)[1]
+        lmstudio_base_url = os.getenv(
+            "LMSTUDIO_BASE_URL",
+            os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:1234/v1"),
+        )
+        lmstudio_api_key = (
+            os.getenv("LMSTUDIO_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+            or "lm-studio"
+        )
+        model = ChatOpenAI(
+            model=lmstudio_model,
+            base_url=lmstudio_base_url,
+            api_key=lmstudio_api_key,
+        )
+    else:
+        model = init_chat_model(model_name)
 
     tools = [
         search_md_docs,
@@ -247,7 +303,8 @@ def create_agent():
         list_agent_storage,
         list_agent_temp,
         clean_agent_temp,
-        # execute_analysis_script, list_experiment_artifacts — отключены
+        execute_analysis_script,
+        list_experiment_artifacts,
         run_subagent,
         get_background_task_result,
     ]
@@ -272,6 +329,9 @@ def create_agent():
             "Для фактов из интернета всегда указывай источники. "
             "Делегирование подзадач делай через run_subagent (синхронно или в фоне); при фоне забирай результат через get_background_task_result. "
             "Пользователю отдавай только обработанный итог, без упоминания субагентов и task_id, если это не требуется по запросу.\n\n"
+            "Правила по субагентам:\n"
+            "- Не делегировать run_subagent для простых вычислений по уже выгруженным данным (корреляция, средние, агрегаты по TSV). Такие расчёты делай через execute_analysis_script: один скрипт читает данные из ai_data/*.tsv или DB_PATH и выводит результат в stdout/файл.\n"
+            "- Если инструмент вернул «Достигнут лимит вложенности» — больше не вызывай run_subagent; заверши подзадачу на основе уже полученных данных или кратко опиши, что не удалось сделать.\n\n"
             "Аналитический контракт (запросы на аналитику KPI, трафика, отчёты по БС):\n"
             "1) Сначала сформируй PLAN: цель, гипотезы, шаги анализа, нужные данные, критерии завершения.\n"
             "2) Выполняй шаги по плану; после каждого — STEP_RESULT: что сделано, ключевые числа, подтверждена/отклонена гипотеза, confidence (0–1).\n"
@@ -311,7 +371,8 @@ def run_cli() -> None:
         except FuturesTimeoutError:
             print(
                 f"\nПревышено время ожидания ({AGENT_INVOKE_TIMEOUT} с). "
-                "Проверьте Ollama; при необходимости увеличьте AGENT_INVOKE_TIMEOUT.",
+                "Проверьте доступность LLM-сервера (LM Studio/OpenAI-совместимый endpoint) "
+                "и при необходимости увеличьте AGENT_INVOKE_TIMEOUT.",
                 file=sys.stderr,
             )
             continue
@@ -323,7 +384,7 @@ def run_cli() -> None:
             print("\nАгент не вернул ответа.\n")
 
 
-# Таймаут одного вызова агента в режиме --query (секунды). Защита от зависания (Ollama/LLM не отвечает).
+# Таймаут одного вызова агента в режиме --query (секунды). Защита от зависания (LLM не отвечает).
 AGENT_INVOKE_TIMEOUT = int(os.environ.get("AGENT_INVOKE_TIMEOUT", "300"))
 # Максимум шагов графа за один запрос (защита от зацикливания).
 AGENT_RECURSION_LIMIT = int(os.environ.get("AGENT_RECURSION_LIMIT", "80"))
@@ -367,7 +428,8 @@ if __name__ == "__main__":
         except FuturesTimeoutError:
             print(
                 f"\nПревышено время ожидания ({AGENT_INVOKE_TIMEOUT} с). "
-                "Проверьте, что Ollama запущен и модель отвечает; при необходимости увеличьте AGENT_INVOKE_TIMEOUT.",
+                "Проверьте доступность LLM-сервера (LM Studio/OpenAI-совместимый endpoint) "
+                "и при необходимости увеличьте AGENT_INVOKE_TIMEOUT.",
                 file=sys.stderr,
             )
             sys.exit(124)

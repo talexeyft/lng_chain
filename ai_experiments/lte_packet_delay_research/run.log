@@ -1,0 +1,56 @@
+================================================================================
+LTE PACKET DELAY COUNTER RESEARCH
+================================================================================
+
+Tavily API available: True
+Number of queries: 13
+
+[1/13] Searching: L.Traffic.DL.PktDelay.Time.QCI LTE counter formula calculati...
+Tavily search error for 'L.Traffic.DL.PktDelay.Time.QCI LTE counter formula calculation PDCP RLC': Unauthorized: missing or invalid API key.
+  No results found
+[2/13] Searching: E-RAB.PktDelay.Avg 3GPP measurement definition...
+Tavily search error for 'E-RAB.PktDelay.Avg 3GPP measurement definition': Unauthorized: missing or invalid API key.
+  No results found
+[3/13] Searching: LTE packet delay measurement Layer 2 PDCP delay formula...
+Tavily search error for 'LTE packet delay measurement Layer 2 PDCP delay formula': Unauthorized: missing or invalid API key.
+  No results found
+[4/13] Searching: Huawei L.Traffic.DL.PktDelay.Time.QCI counter description ma...
+Tavily search error for 'Huawei L.Traffic.DL.PktDelay.Time.QCI counter description manual': Unauthorized: missing or invalid API key.
+  No results found
+[5/13] Searching: Ericsson LTE packet delay counter KPI definition...
+Tavily search error for 'Ericsson LTE packet delay counter KPI definition': Unauthorized: missing or invalid API key.
+  No results found
+[6/13] Searching: Nokia LTE eNB packet delay measurement counter...
+Tavily search error for 'Nokia LTE eNB packet delay measurement counter': Unauthorized: missing or invalid API key.
+  No results found
+[7/13] Searching: ZTE LTE performance counters packet delay QCI...
+Tavily search error for 'ZTE LTE performance counters packet delay QCI': Unauthorized: missing or invalid API key.
+  No results found
+[8/13] Searching: 3GPP TS 36.314 Layer 2 measurements packet delay...
+Tavily search error for '3GPP TS 36.314 Layer 2 measurements packet delay': Unauthorized: missing or invalid API key.
+  No results found
+[9/13] Searching: 3GPP TS 28.552 packet delay measurement definition...
+Tavily search error for '3GPP TS 28.552 packet delay measurement definition': Unauthorized: missing or invalid API key.
+  No results found
+[10/13] Searching: 3GPP TS 23.203 QCI characteristics latency...
+Tavily search error for '3GPP TS 23.203 QCI characteristics latency': Unauthorized: missing or invalid API key.
+  No results found
+[11/13] Searching: LTE packet delay measurement research paper QoE impact...
+Tavily search error for 'LTE packet delay measurement research paper QoE impact': Unauthorized: missing or invalid API key.
+  No results found
+[12/13] Searching: LTE network packet delay optimization techniques whitepaper...
+Tavily search error for 'LTE network packet delay optimization techniques whitepaper': Unauthorized: missing or invalid API key.
+  No results found
+[13/13] Searching: typical LTE packet delay values production networks KPI benc...
+Tavily search error for 'typical LTE packet delay values production networks KPI benchmarks': Unauthorized: missing or invalid API key.
+  No results found
+Saved: /home/alex/code/lng_chain/ai_experiments/lte_packet_delay_research/results/search_results.json
+Saved: /home/alex/code/lng_chain/ai_experiments/lte_packet_delay_research/results/research_summary.json
+
+================================================================================
+RESEARCH COMPLETE
+================================================================================
+Full results: /home/alex/code/lng_chain/ai_experiments/lte_packet_delay_research/results/search_results.json
+Summary: /home/alex/code/lng_chain/ai_experiments/lte_packet_delay_research/results/research_summary.json
+
+KEY FINDINGS:
